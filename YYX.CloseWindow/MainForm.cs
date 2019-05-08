@@ -4,11 +4,11 @@ using System.Windows.Forms;
 using Timer = System.Timers.Timer;
 
 namespace YYX.CloseWindow
-
 {
     public partial class MainForm : Form
     {
-        private const string LpWindowName = @"close.ico - Windows 照片查看器";
+        private string lpWindowName;
+        private bool realClose;
 
         public MainForm()
         {
@@ -17,6 +17,10 @@ namespace YYX.CloseWindow
             notifyIcon.ContextMenuStrip=  CreateNotifyIconContextMenuStrip();
 
             CloseWindow();
+
+            var closeWindowConfig = XmlSerializerHelper<CloseWindowConfig>.Load();
+            lpWindowName = closeWindowConfig.WindowTitle;
+            textBoxWindowTitle.Text = lpWindowName;
 
             var timer = new Timer { Interval = 100, AutoReset = true};
             timer.Elapsed += (sender, eve) => { CloseWindow(); };
@@ -28,17 +32,16 @@ namespace YYX.CloseWindow
             var contextMenuStrip = new ContextMenuStrip();
             {
                 var closeItem = contextMenuStrip.Items.Add("关闭");
-                closeItem.Click += (sender, e) => { Close(); };
+                closeItem.Click += (sender, e) =>
+                {
+                    realClose = true;
+                    Close();
+                };
             }
 
             contextMenuStrip.AddAutoRun();
 
             return contextMenuStrip;
-        }
-
-        protected override void OnShown(EventArgs e)
-        {
-            Hide();
         }
 
         [DllImport("User32.dll", EntryPoint = "FindWindow")]
@@ -47,13 +50,38 @@ namespace YYX.CloseWindow
         [DllImport("user32.dll", EntryPoint = "SendMessageA")]
         private static extern int SendMessage(IntPtr hwnd, int wMsg, int wParam, int lParam);
 
-        private static void CloseWindow()
+        private void CloseWindow()
         {
             const int WM_CLOSE = 0x10;
-            var windowHandle = (IntPtr) FindWindow(null, LpWindowName);
+            var windowHandle = (IntPtr) FindWindow(null, lpWindowName);
             if (windowHandle != IntPtr.Zero)
             {
                 SendMessage(windowHandle, WM_CLOSE, 0, 0);
+            }
+        }
+
+        private void ButtonOK_Click(object sender, EventArgs e)
+        {
+            lpWindowName = textBoxWindowTitle.Text;
+            var closeWindowConfig = new CloseWindowConfig(lpWindowName);
+            XmlSerializerHelper<CloseWindowConfig>.Save(closeWindowConfig);
+        }
+
+        private void NotifyIcon_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                Visible = true;
+                BringToFront();
+            }
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (!realClose)
+            {
+                e.Cancel = true;
+                Visible = false;
             }
         }
     }
