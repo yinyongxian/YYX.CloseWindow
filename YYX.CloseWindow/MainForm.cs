@@ -7,22 +7,22 @@ namespace YYX.CloseWindow
 {
     public partial class MainForm : Form
     {
-        private string lpWindowName;
+        private string lpWindowNames;
         private bool realClose;
 
         public MainForm()
         {
             InitializeComponent();
 
-            notifyIcon.ContextMenuStrip=  CreateNotifyIconContextMenuStrip();
+            notifyIcon.ContextMenuStrip = CreateNotifyIconContextMenuStrip();
 
             CloseWindow();
 
             var closeWindowConfig = XmlSerializerHelper<CloseWindowConfig>.Load();
-            lpWindowName = closeWindowConfig.WindowTitle;
-            textBoxWindowTitle.Text = lpWindowName;
+            lpWindowNames = closeWindowConfig.WindowTitle;
+            textBoxWindowTitle.Text = lpWindowNames;
 
-            var timer = new Timer { Interval = 100, AutoReset = true};
+            var timer = new Timer { Interval = 100, AutoReset = true };
             timer.Elapsed += (sender, eve) => { CloseWindow(); };
             timer.Start();
         }
@@ -52,18 +52,27 @@ namespace YYX.CloseWindow
 
         private void CloseWindow()
         {
-            const int WM_CLOSE = 0x10;
-            var windowHandle = (IntPtr) FindWindow(null, lpWindowName);
-            if (windowHandle != IntPtr.Zero)
+            if (string.IsNullOrEmpty(lpWindowNames))
             {
-                SendMessage(windowHandle, WM_CLOSE, 0, 0);
+                return;
+            }
+
+            const int WM_CLOSE = 0x10;
+            var lpWindowNameList = lpWindowNames.Split(new char[] { ',', '，' });
+            foreach (var lpWindowName in lpWindowNameList)
+            {
+                var windowHandle = (IntPtr)FindWindow(null, lpWindowName);
+                if (windowHandle != IntPtr.Zero)
+                {
+                    SendMessage(windowHandle, WM_CLOSE, 0, 0);
+                }
             }
         }
 
         private void ButtonOK_Click(object sender, EventArgs e)
         {
-            lpWindowName = textBoxWindowTitle.Text;
-            var closeWindowConfig = new CloseWindowConfig(lpWindowName);
+            lpWindowNames = textBoxWindowTitle.Text;
+            var closeWindowConfig = new CloseWindowConfig(lpWindowNames);
             XmlSerializerHelper<CloseWindowConfig>.Save(closeWindowConfig);
         }
 
